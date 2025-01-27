@@ -1,0 +1,199 @@
+== Case Study: Subscription Analytics and Recommendations Using PySpark
+
+=== Objective
+Perform advanced data analysis on customer subscriptions using PySpark, focusing on:
+
+1. Setting up PySpark on Windows.
+2. Loading and cleaning subscription data using PySpark.
+3. Filtering and transforming subscription data with Spark DataFrame operations.
+4. Applying PySpark functions to calculate statistics and derive insights.
+
+=== Setting Up PySpark on Windows
+
+[source,plaintext]
+----
+1. Download and install Java (JDK):
+   - Download the latest Java Development Kit (JDK) from Oracle or OpenJDK.
+   - Set the `JAVA_HOME` environment variable to the JDK installation directory.
+     Example:
+     ```plaintext
+     JAVA_HOME=C:\Program Files\Java\jdk-<version>
+     PATH=%JAVA_HOME%\bin;%PATH%
+     ```
+
+2. Download and install Apache Spark:
+   - Download the pre-built Spark binaries from https://spark.apache.org/downloads.html.
+   - Extract the Spark package to a directory (e.g., `C:\spark`).
+   - Set the `SPARK_HOME` environment variable to the Spark installation directory.
+     Example:
+     ```plaintext
+     SPARK_HOME=C:\spark
+     PATH=%SPARK_HOME%\bin;%PATH%
+     ```
+
+3. Install Hadoop (winutils):
+   - Download the `winutils.exe` binary for your Spark version.
+   - Place `winutils.exe` in a `bin` folder inside a new directory, e.g., `C:\hadoop`.
+   - Set the `HADOOP_HOME` environment variable to this directory.
+     Example:
+     ```plaintext
+     HADOOP_HOME=C:\hadoop
+     PATH=%HADOOP_HOME%\bin;%PATH%
+     ```
+
+4. Install PySpark via pip:
+   ```bash
+   pip install pyspark
+   ```
+
+5. Verify the setup:
+   ```bash
+   pyspark
+   ```
+   This should open the PySpark shell.
+----
+
+=== Step 1: Define Raw Data
+
+[source,python]
+----
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, when, avg, sum as _sum, count
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("SubscriptionAnalytics").getOrCreate()
+
+# Define raw data
+data = [
+    (101, "Basic", 15.0, True),
+    (102, "Premium", 45.0, True),
+    (103, "Premium", 45.0, False),
+    (104, "Basic", 15.0, True),
+    (105, "Gold", 70.0, True),
+    (None, "Gold", 70.0, True),
+    (107, None, "N/A", False),
+    (108, "Basic", 15.0, True),
+    ("109", "Basic", 15.0, "yes"),
+    (110, "Gold", -10.0, True)
+]
+
+columns = ["customer_id", "subscription_plan", "monthly_revenue", "active_status"]
+subscriptions_df = spark.createDataFrame(data, columns)
+
+print("Raw Data:")
+subscriptions_df.show()
+----
+
+=== Step 2: Cleaning Dirty Data
+
+[source,python]
+----
+def clean_data(df):
+    """
+    Cleans the subscription data by:
+    1. Converting customer IDs to integers; dropping invalid or missing IDs.
+    2. Filtering valid subscription plans ("Basic", "Premium", "Gold").
+    3. Converting monthly revenue to positive floats; dropping invalid or negative values.
+    4. Converting active status to boolean; accepting "True" and "Yes" (case-insensitive).
+    """
+    valid_plans = ["Basic", "Premium", "Gold"]
+
+    return (
+        df
+        .withColumn("customer_id", when(col("customer_id").cast("int").isNotNull(), col("customer_id").cast("int")))
+        .withColumn("subscription_plan", when(col("subscription_plan").isin(valid_plans), col("subscription_plan")))
+        .withColumn("monthly_revenue", when(col("monthly_revenue").cast("float") > 0, col("monthly_revenue").cast("float")))
+        .withColumn("active_status", when(col("active_status").cast("string").rlike("(?i)true|yes"), True).otherwise(False))
+        .dropna()
+    )
+
+cleaned_df = clean_data(subscriptions_df)
+print("Cleaned Data:")
+cleaned_df.show()
+----
+
+=== Step 3: Filter Active Subscriptions
+
+[source,python]
+----
+# Filter active customers
+active_customers_df = cleaned_df.filter(col("active_status") == True)
+print("Active Customers:")
+active_customers_df.show()
+----
+
+=== Step 4: Group Customers by Subscription Plan
+
+[source,python]
+----
+# Group customers by subscription plans
+customers_by_plan = active_customers_df.groupBy("subscription_plan").agg(
+    count("customer_id").alias("customer_count")
+)
+print("Customers Grouped by Plan:")
+customers_by_plan.show()
+----
+
+=== Step 5: Total Revenue for Active Subscriptions
+
+[source,python]
+----
+# Calculate total revenue for active subscriptions
+total_revenue = active_customers_df.agg(_sum("monthly_revenue").alias("total_revenue")).collect()[0]["total_revenue"]
+print(f"Total Active Revenue: {total_revenue}")
+----
+
+=== Step 6: Average Revenue and High Revenue Customers
+
+[source,python]
+----
+# Calculate average revenue
+average_revenue = active_customers_df.agg(avg("monthly_revenue").alias("average_revenue")).collect()[0]["average_revenue"]
+print(f"Average Revenue: {average_revenue}")
+
+# Filter high revenue customers
+high_revenue_customers = active_customers_df.filter(col("monthly_revenue") > 30)
+print("High Revenue Customers:")
+high_revenue_customers.show()
+----
+
+=== Step 7: Reanalyze Churn Rate
+
+[source,python]
+----
+# Calculate churn rate
+total_customers = cleaned_df.count()
+active_customers = active_customers_df.count()
+churn_rate = ((total_customers - active_customers) / total_customers) * 100
+print(f"Churn Rate: {churn_rate:.2f}%")
+----
+
+=== Step 8: Visualize Revenue Distribution
+
+[source,python]
+----
+import matplotlib.pyplot as plt
+
+# Convert revenue data to a Pandas DataFrame for visualization
+revenue_data = active_customers_df.select("monthly_revenue").toPandas()
+
+# Plot histogram
+plt.hist(revenue_data["monthly_revenue"], bins=5, color='blue', alpha=0.7)
+plt.title("Revenue Distribution of Active Customers")
+plt.xlabel("Revenue")
+plt.ylabel("Frequency")
+plt.show()
+----
+
+=== Step 9: Predict Future Revenue
+
+[source,python]
+----
+def predict_future_revenue(current_revenue, growth_rate, months):
+    """Predict future revenue using a compound growth formula."""
+    return round(current_revenue * ((1 + growth_rate / 100) ** months), 2)
+
+growth_rate = 5.0  # Assuming a 5% monthly growth rate
+future_revenue = predict_future_revenue(total_revenue, growth_rate, 12)
+print(f"Predicted Revenue for Next 12 Months: ${future_revenue}")
+----
