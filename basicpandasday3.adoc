@@ -1,0 +1,168 @@
+== Case Study: Subscription Analytics and Recommendations Using Pandas
+
+=== Objective
+Perform advanced data analysis on customer subscriptions using Pandas, focusing on:
+
+1. Enumerating subscription plans and customers.
+2. Filtering and transforming subscription data with Pandas operations.
+3. Aligning customer IDs with subscription plans and revenues.
+4. Applying Pandas functions to calculate statistics and derive insights.
+
+[source,python]
+----
+import pandas as pd
+
+# Step 1: Define raw data for customers and their subscriptions as a Pandas DataFrame.
+data = {
+    "customer_id": [101, 102, 103, 104, 105, None, 107, 108, "109", 110],
+    "subscription_plan": ["Basic", "Premium", "Premium", "Basic", "Gold", "Gold", None, "Basic", "Basic", "Gold"],
+    "monthly_revenue": [15.0, 45.0, 45.0, 15.0, 70.0, 70.0, "N/A", 15.0, 15.0, -10.0],
+    "active_status": [True, True, False, True, True, True, False, True, "yes", True],
+}
+subscriptions_df = pd.DataFrame(data)
+print("\nRaw Data:")
+print(subscriptions_df)
+----
+
+=== Cleaning Dirty Data
+
+[source,python]
+----
+def clean_data_pd(df):
+    """
+    Cleans the subscription data by performing the following steps:
+    1. Converts customer IDs to integers; drops rows with invalid or missing IDs.
+    2. Filters subscription plans to include only valid values ("Basic", "Premium", "Gold").
+    3. Converts monthly revenue to positive floats; drops rows with invalid or negative revenues.
+    4. Converts active status to boolean; accepts "True", "Yes" (case-insensitive) as active.
+    """
+    df = df.copy()
+
+    # Validate customer IDs
+    df["customer_id"] = pd.to_numeric(df["customer_id"], errors="coerce")
+
+    # Validate subscription plans
+    valid_plans = ["Basic", "Premium", "Gold"]
+    df["subscription_plan"] = df["subscription_plan"].where(df["subscription_plan"].isin(valid_plans))
+
+    # Validate monthly revenue
+    df["monthly_revenue"] = pd.to_numeric(df["monthly_revenue"], errors="coerce")
+    df = df[df["monthly_revenue"] > 0]
+
+    # Validate active status
+    df["active_status"] = df["active_status"].apply(lambda x: str(x).lower() in ["true", "yes"])
+
+    # Drop rows with missing values
+    df = df.dropna()
+    return df
+
+cleaned_df = clean_data_pd(subscriptions_df)
+print("\nCleaned Data:")
+print(cleaned_df)
+----
+
+=== Enumerate Cleaned Data
+
+[source,python]
+----
+# Enumerate cleaned data by resetting the index
+cleaned_df = cleaned_df.reset_index(drop=True)
+cleaned_df.index.name = "index"
+print("\nEnumerated Cleaned Data:")
+print(cleaned_df)
+----
+
+=== Filter Active Subscriptions
+
+[source,python]
+----
+# Filter active customers
+active_customers_df = cleaned_df[cleaned_df["active_status"] == True]
+print("\nActive Customers:")
+print(active_customers_df)
+----
+
+=== Group Customers by Subscription Plan
+
+[source,python]
+----
+# Group customers by subscription plans
+customers_by_plan_pd = active_customers_df.groupby("subscription_plan")["customer_id"].apply(list)
+print("\nCustomers Grouped by Plan:")
+print(customers_by_plan_pd)
+----
+
+=== Total Revenue for Active Subscriptions
+
+[source,python]
+----
+# Calculate total revenue for active subscriptions
+total_active_revenue_pd = active_customers_df["monthly_revenue"].sum()
+print("\nTotal Active Revenue:", total_active_revenue_pd)
+----
+
+=== Average Revenue and High Revenue Customers
+
+[source,python]
+----
+def calculate_average_revenue_pd(df):
+    """Calculate the average revenue using Pandas."""
+    return df["monthly_revenue"].mean() if not df.empty else 0
+
+def high_revenue_customers_pd(df, threshold):
+    """Filter customers with revenue above a threshold."""
+    return df[df["monthly_revenue"] > threshold]
+
+average_revenue_pd = calculate_average_revenue_pd(active_customers_df)
+print("\nAverage Revenue from Active Customers:", average_revenue_pd)
+
+high_revenue_threshold_pd = 30.0
+high_revenue_customers_pd = high_revenue_customers_pd(active_customers_df, high_revenue_threshold_pd)
+print("\nHigh Revenue Active Customers:")
+print(high_revenue_customers_pd)
+----
+
+=== Reanalyze Churn Rate
+
+[source,python]
+----
+def calculate_churn_rate_pd(total_customers, active_customers):
+    """Calculate churn rate using Pandas."""
+    inactive_count = total_customers - len(active_customers)
+    churn_rate = (inactive_count / total_customers) * 100
+    return round(churn_rate, 2)
+
+total_customers_pd = len(cleaned_df)
+churn_rate_pd = calculate_churn_rate_pd(total_customers_pd, active_customers_df)
+print(f"\nChurn Rate: {churn_rate_pd}%")
+----
+
+=== Visualize Revenue Distribution
+
+[source,python]
+----
+import matplotlib.pyplot as plt
+
+def plot_revenue_distribution_pd(df):
+    """Plot revenue distribution using Matplotlib."""
+    plt.hist(df["monthly_revenue"], bins=5, color='blue', alpha=0.7)
+    plt.title("Revenue Distribution of Active Customers (Cleaned)")
+    plt.xlabel("Revenue")
+    plt.ylabel("Frequency")
+    plt.show()
+
+plot_revenue_distribution_pd(active_customers_df)
+----
+
+=== Predict Future Revenue
+
+[source,python]
+----
+def predict_future_revenue_pd(current_revenue, growth_rate, months):
+    """Predict future revenue using a compound growth formula."""
+    return round(current_revenue * ((1 + growth_rate / 100) ** months), 2)
+
+growth_rate_pd = 5.0  # Assuming a 5% monthly growth rate
+future_revenue_pd = predict_future_revenue_pd(total_active_revenue_pd, growth_rate_pd, 12)
+print(f"\nPredicted Revenue for Next 12 Months: ${future_revenue_pd}")
+----
