@@ -22,16 +22,43 @@ active_status = [True, True, False, True, True, True, False, True, "yes", True] 
 [source,python]
 ----
 def clean_data(customer_ids, subscription_plans, monthly_revenue, active_status):
+    """
+    Cleans the input data by performing the following steps:
+    1. Converts customer IDs to integers where possible; skips entries with invalid or missing IDs.
+    2. Ensures subscription plans belong to a valid set ("Basic", "Premium", "Gold"); invalid plans are set to None.
+    3. Converts monthly revenue to a positive float; skips entries with invalid or negative revenues.
+    4. Converts active status to a boolean; accepts "True", "Yes" (case-insensitive) as active, all else as inactive.
+    5. Appends only valid data entries (with no None values) to the cleaned data list.
+
+    Parameters:
+    - customer_ids: List of customer IDs.
+    - subscription_plans: List of subscription plans.
+    - monthly_revenue: List of monthly revenue values.
+    - active_status: List of subscription statuses.
+
+    Returns:
+    - A cleaned list of tuples containing valid customer data.
+    """
     cleaned_data = []
     for i in range(len(customer_ids)):
         try:
+            # Validate customer ID
             customer_id = int(customer_ids[i]) if customer_ids[i] else None
+
+            # Validate subscription plan
             plan = subscription_plans[i] if subscription_plans[i] in ["Basic", "Premium", "Gold"] else None
+
+            # Validate monthly revenue
             revenue = float(monthly_revenue[i]) if isinstance(monthly_revenue[i], (int, float)) and float(monthly_revenue[i]) > 0 else None
+
+            # Validate active status
             active = True if str(active_status[i]).lower() in ["true", "yes"] else False
+
+            # Append to cleaned data if all validations pass
             if customer_id and plan and revenue is not None:
                 cleaned_data.append((customer_id, plan, revenue, active))
         except (ValueError, TypeError):
+            # Skip invalid entries
             continue
     return cleaned_data
 
@@ -54,6 +81,9 @@ for index, details in enumerated_data:
 
 [source,python]
 ----
+# Filtering active customers is critical to maintaining data integrity for subsequent calculations. 
+# This ensures only valid and currently active records are included in revenue calculations,
+# customer segmentation, and predictive analytics, preventing skewed results caused by inactive records.
 active_customers = [customer for index, customer in enumerated_data if customer[3]]
 print("\nActive Customers:")
 print(active_customers)
@@ -93,6 +123,18 @@ print(customer_revenue_mapping)
 [source,python]
 ----
 def calculate_average_revenue(customers):
+    """
+    Calculates the average revenue from a list of customers. 
+
+    - If the list is empty, the function returns 0 to avoid a division by zero error.
+    - This ensures the program remains robust even when there are no active customers.
+
+    Parameters:
+    - customers: List of customer tuples where revenue is at index 2.
+
+    Returns:
+    - Average revenue (float) or 0 if the list is empty.
+    """
     revenues = [customer[2] for customer in customers]
     return sum(revenues) / len(revenues) if revenues else 0
 
@@ -122,6 +164,18 @@ print(inactive_customers)
 [source,python]
 ----
 def calculate_churn_rate(total_customers, active_customers):
+    """
+    Calculates the churn rate, which represents the percentage of customers who are no longer active.
+
+    Formula:
+    churn_rate = (number_of_inactive_customers / total_number_of_customers) * 100
+
+    - total_customers: Total number of customers in the dataset.
+    - active_customers: List of active customer records.
+
+    This metric is significant for businesses as it provides insights into customer retention.
+    A high churn rate may indicate issues with customer satisfaction or product/service value.
+    """
     inactive_count = total_customers - len(active_customers)
     churn_rate = (inactive_count / total_customers) * 100
     return round(churn_rate, 2)
@@ -136,6 +190,12 @@ print(f"\nChurn Rate: {churn_rate}%")
 [source,python]
 ----
 import matplotlib.pyplot as plt
+
+# Matplotlib is used here to create a histogram for revenue distribution.
+# It is an effective library for generating visual insights, allowing us to:
+# 1. Quickly understand the frequency distribution of revenue values.
+# 2. Identify patterns or anomalies, such as clusters or gaps.
+# 3. Share visual results with stakeholders for better data communication.
 
 def plot_revenue_distribution(customers):
     revenues = [customer[2] for customer in customers]
