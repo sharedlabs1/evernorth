@@ -1,0 +1,164 @@
+== Case Study: Subscription Analytics and Recommendations Using NumPy
+
+=== Objective
+Perform advanced data analysis on customer subscriptions using NumPy, focusing on:
+
+1. Enumerating subscription plans and customers.
+2. Filtering and transforming subscription data with NumPy operations.
+3. Aligning customer IDs with subscription plans and revenues.
+4. Applying NumPy functions to calculate statistics and derive insights.
+
+[source,python]
+----
+import numpy as np
+
+# Step 1: Define raw data for customers and their subscriptions as NumPy arrays.
+customer_ids = np.array([101, 102, 103, 104, 105, None, 107, 108, "109", 110], dtype=object)
+subscription_plans = np.array(["Basic", "Premium", "Premium", "Basic", "Gold", "Gold", None, "Basic", "Basic", "Gold"], dtype=object)
+monthly_revenue = np.array([15.0, 45.0, 45.0, 15.0, 70.0, 70.0, "N/A", 15.0, 15.0, -10.0], dtype=object)
+active_status = np.array([True, True, False, True, True, True, False, True, "yes", True], dtype=object)  # Mixed and inconsistent data
+----
+
+=== Cleaning Dirty Data
+
+[source,python]
+----
+def clean_data_np(customer_ids, subscription_plans, monthly_revenue, active_status):
+    """
+    Cleans the input data using NumPy by performing the following steps:
+    1. Converts customer IDs to integers where possible; skips entries with invalid or missing IDs.
+    2. Ensures subscription plans belong to a valid set ("Basic", "Premium", "Gold"); invalid plans are set to None.
+    3. Converts monthly revenue to a positive float; skips entries with invalid or negative revenues.
+    4. Converts active status to a boolean; accepts "True", "Yes" (case-insensitive) as active, all else as inactive.
+    """
+    # Validate customer IDs
+    customer_ids = np.array([int(cid) if str(cid).isdigit() else None for cid in customer_ids], dtype=object)
+
+    # Validate subscription plans
+    valid_plans = {"Basic", "Premium", "Gold"}
+    subscription_plans = np.array([plan if plan in valid_plans else None for plan in subscription_plans], dtype=object)
+
+    # Validate monthly revenue
+    monthly_revenue = np.array([float(rev) if isinstance(rev, (int, float)) and float(rev) > 0 else None for rev in monthly_revenue], dtype=object)
+
+    # Validate active status
+    active_status = np.array([str(status).lower() in ["true", "yes"] for status in active_status], dtype=bool)
+
+    # Filter valid rows
+    valid_rows = (customer_ids != None) & (subscription_plans != None) & (monthly_revenue != None)
+    cleaned_data = np.column_stack((customer_ids[valid_rows], subscription_plans[valid_rows], monthly_revenue[valid_rows], active_status[valid_rows]))
+
+    return cleaned_data
+
+cleaned_data_np = clean_data_np(customer_ids, subscription_plans, monthly_revenue, active_status)
+print("\nCleaned Data:")
+print(cleaned_data_np)
+----
+
+=== Enumerate Cleaned Data
+
+[source,python]
+----
+# Enumerate cleaned data
+enumerated_data_np = np.column_stack((np.arange(len(cleaned_data_np)), cleaned_data_np))
+print("\nEnumerated Cleaned Data:")
+print(enumerated_data_np)
+----
+
+=== Filter Active Subscriptions
+
+[source,python]
+----
+# Filter active customers using NumPy boolean indexing
+active_customers_np = cleaned_data_np[cleaned_data_np[:, 3] == True]
+print("\nActive Customers:")
+print(active_customers_np)
+----
+
+=== Group Customers by Subscription Plan
+
+[source,python]
+----
+# Group customers by subscription plans
+plans = np.unique(active_customers_np[:, 1])
+customers_by_plan_np = {plan: active_customers_np[active_customers_np[:, 1] == plan, 0] for plan in plans}
+print("\nCustomers Grouped by Plan:")
+print(customers_by_plan_np)
+----
+
+=== Total Revenue for Active Subscriptions
+
+[source,python]
+----
+# Calculate total revenue using NumPy
+total_active_revenue_np = np.sum(active_customers_np[:, 2].astype(float))
+print("\nTotal Active Revenue:", total_active_revenue_np)
+----
+
+=== Average Revenue and High Revenue Customers
+
+[source,python]
+----
+def calculate_average_revenue_np(customers):
+    """Calculate the average revenue using NumPy."""
+    revenues = customers[:, 2].astype(float)
+    return np.mean(revenues) if revenues.size > 0 else 0
+
+def high_revenue_customers_np(customers, threshold):
+    """Filter customers with revenue above a threshold."""
+    return customers[customers[:, 2].astype(float) > threshold]
+
+average_revenue_np = calculate_average_revenue_np(active_customers_np)
+print("\nAverage Revenue from Active Customers:", average_revenue_np)
+
+high_revenue_threshold_np = 30.0
+high_revenue_customers_np = high_revenue_customers_np(active_customers_np, high_revenue_threshold_np)
+print("\nHigh Revenue Active Customers:")
+print(high_revenue_customers_np)
+----
+
+=== Reanalyze Churn Rate
+
+[source,python]
+----
+def calculate_churn_rate_np(total_customers, active_customers):
+    """Calculates churn rate using NumPy."""
+    inactive_count = total_customers - len(active_customers)
+    churn_rate = (inactive_count / total_customers) * 100
+    return round(churn_rate, 2)
+
+total_customers_np = len(cleaned_data_np)
+churn_rate_np = calculate_churn_rate_np(total_customers_np, active_customers_np)
+print(f"\nChurn Rate: {churn_rate_np}%")
+----
+
+=== Visualize Revenue Distribution
+
+[source,python]
+----
+import matplotlib.pyplot as plt
+
+def plot_revenue_distribution_np(customers):
+    """Plot revenue distribution using Matplotlib."""
+    revenues = customers[:, 2].astype(float)
+    plt.hist(revenues, bins=5, color='blue', alpha=0.7)
+    plt.title("Revenue Distribution of Active Customers (Cleaned)")
+    plt.xlabel("Revenue")
+    plt.ylabel("Frequency")
+    plt.show()
+
+plot_revenue_distribution_np(active_customers_np)
+----
+
+=== Predict Future Revenue
+
+[source,python]
+----
+def predict_future_revenue_np(current_revenue, growth_rate, months):
+    """Predict future revenue using a compound growth formula."""
+    return np.round(current_revenue * ((1 + growth_rate / 100) ** months), 2)
+
+growth_rate_np = 5.0  # Assuming a 5% monthly growth rate
+future_revenue_np = predict_future_revenue_np(total_active_revenue_np, growth_rate_np, 12)
+print(f"\nPredicted Revenue for Next 12 Months: ${future_revenue_np}")
+----
